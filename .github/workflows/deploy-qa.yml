@@ -40,7 +40,7 @@ jobs:
           docker push $BACKEND_IMAGE
 
       - name: Deploy to QA server
-        uses: appleboy/ssh-action@1.0.3
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.QA_HOST }}
           username: ${{ secrets.QA_USER }}
