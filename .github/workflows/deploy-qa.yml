@@ -1,0 +1,54 @@
+name: Deploy to QA
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  FRONTEND_IMAGE: ghcr.io/phoenyxxed/csc424-final-exam/frontend:latest
+  BACKEND_IMAGE: ghcr.io/phoenyxxed/csc424-final-exam/backend:latest
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Github Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        run: |
+          docker build -t $FRONTEND_IMAGE ./frontend
+          docker push $FRONTEND_IMAGE
+
+      - name: Build and push backend image
+        run: |
+          docker build -t $BACKEND_IMAGE ./backend
+          docker push $BACKEND_IMAGE
+
+      - name: Deploy to QA server
+        uses: appleboy/ssh-action@1.0.3
+        with:
+          host: ${{ secrets.QA_HOST }}
+          username: ${{ secrets.QA_USER }}
+          key: ${{ secrets.QA_SSH_KEY }}
+          script: |
+            cd ~/csc424-final-exam
+            git pull origin main
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.qa.yml pull
+            docker compose -f docker-compose.qa.yml up -d
+            docker image prune -f
